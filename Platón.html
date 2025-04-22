@@ -2,13 +2,14 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Imagen con zoom centrado en cursor y soporte táctil</title>
+  <title>Zoom y desplazamiento táctil / ratón</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <style>
     html, body {
       margin: 0;
       height: 100%;
       overflow: hidden;
-      background: white; /* Cambiado a blanco */
+      background: white;
       touch-action: none;
     }
 
@@ -25,12 +26,14 @@
       user-select: none;
       -webkit-user-drag: none;
       pointer-events: none;
+      max-width: none;
+      max-height: none;
     }
   </style>
 </head>
 <body>
   <div id="contenedor">
-    <img id="imagen" src="mapa-mental1.svg" alt="Imagen" draggable="false">
+    <img id="imagen" src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Hopetoun_falls.jpg/800px-Hopetoun_falls.jpg" alt="Imagen" draggable="false">
   </div>
 
   <script>
@@ -39,12 +42,24 @@
 
     let scale = 1;
     let x = 0, y = 0;
-    let isDragging = false;
     let startX = 0, startY = 0;
+    let isDragging = false;
+    let lastTouchDistance = null;
 
     function actualizarTransformacion() {
       imagen.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
     }
+
+    // Centra la imagen al principio
+    window.addEventListener('load', () => {
+      const contWidth = contenedor.clientWidth;
+      const contHeight = contenedor.clientHeight;
+      imagen.onload = () => {
+        x = (contWidth - imagen.width) / 2;
+        y = (contHeight - imagen.height) / 2;
+        actualizarTransformacion();
+      };
+    });
 
     // Zoom con la rueda centrado en el cursor
     contenedor.addEventListener('wheel', (e) => {
@@ -63,7 +78,7 @@
       actualizarTransformacion();
     });
 
-    // Arrastrar con ratón
+    // Ratón: arrastrar
     contenedor.addEventListener('mousedown', (e) => {
       isDragging = true;
       contenedor.style.cursor = 'grabbing';
@@ -83,8 +98,7 @@
       actualizarTransformacion();
     });
 
-    // Soporte táctil: arrastrar con un dedo, zoom con dos dedos
-    let lastTouchDistance = null;
+    // Táctil: arrastrar o zoom
     contenedor.addEventListener('touchstart', (e) => {
       if (e.touches.length === 1) {
         startX = e.touches[0].clientX - x;
@@ -99,7 +113,7 @@
     contenedor.addEventListener('touchmove', (e) => {
       e.preventDefault();
 
-      if (e.touches.length === 1) {
+      if (e.touches.length === 1 && lastTouchDistance === null) {
         x = e.touches[0].clientX - startX;
         y = e.touches[0].clientY - startY;
         actualizarTransformacion();
@@ -108,28 +122,27 @@
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         const newDistance = Math.hypot(dx, dy);
 
-        if (lastTouchDistance) {
-          const factor = newDistance / lastTouchDistance;
-          const rect = imagen.getBoundingClientRect();
-          const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
-          const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
-          const prevScale = scale;
+        const rect = imagen.getBoundingClientRect();
+        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+        const prevScale = scale;
 
-          scale *= factor;
-          scale = Math.max(0.1, Math.min(scale, 10));
+        const factor = newDistance / lastTouchDistance;
+        scale *= factor;
+        scale = Math.max(0.1, Math.min(scale, 10));
 
-          x -= (midX / prevScale) * (scale - prevScale);
-          y -= (midY / prevScale) * (scale - prevScale);
+        x -= (midX / prevScale) * (scale - prevScale);
+        y -= (midY / prevScale) * (scale - prevScale);
 
-          actualizarTransformacion();
-        }
-
+        actualizarTransformacion();
         lastTouchDistance = newDistance;
       }
     });
 
-    contenedor.addEventListener('touchend', () => {
-      lastTouchDistance = null;
+    contenedor.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) {
+        lastTouchDistance = null;
+      }
     });
   </script>
 </body>
